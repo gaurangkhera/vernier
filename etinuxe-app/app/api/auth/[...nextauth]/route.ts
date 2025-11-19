@@ -1,6 +1,8 @@
-import NextAuth from 'next-auth';
-import { authOptions } from '@/lib/auth';
+// NextAuth temporarily disabled
+export async function GET() {
+  return new Response('Auth disabled', { status: 404 });
+}
 
-const handler = NextAuth(authOptions);
-
-export { handler as GET, handler as POST };
+export async function POST() {
+  return new Response('Auth disabled', { status: 404 });
+}
