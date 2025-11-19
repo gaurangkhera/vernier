@@ -238,32 +238,37 @@ Respond with ONLY a JSON array:
           )}
 
           {/* AI Analysis Results */}
-          <div className="absolute top-4 left-4 right-4 max-h-[60vh] overflow-y-auto space-y-2 z-10">
-            {detectedObjects.map((obj, idx) => (
+          <div className="absolute top-4 left-4 right-4 bottom-32 overflow-y-auto space-y-2 z-10">
+            {detectedObjects.slice(0, 3).map((obj, idx) => (
               <div
                 key={idx}
-                className={`backdrop-blur-md rounded-lg p-4 border-2 ${getThreatColor(obj.threatLevel)}`}
+                className={`backdrop-blur-md rounded-lg p-3 border-2 ${getThreatColor(obj.threatLevel)}`}
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-2">
                   {getThreatIcon(obj.threatLevel)}
                   <div className="flex-1 min-w-0">
-                    <div className="font-bold text-white text-lg">{obj.name}</div>
-                    <div className="text-sm opacity-90 mt-1">{obj.description}</div>
-                    <div className="flex items-center gap-4 mt-2 text-xs opacity-75">
-                      <span>Category: {obj.category}</span>
-                      <span>Confidence: {(obj.confidence * 100).toFixed(0)}%</span>
+                    <div className="font-bold text-white text-sm">{obj.name}</div>
+                    <div className="text-xs opacity-90 mt-1 line-clamp-2">{obj.description}</div>
+                    <div className="flex items-center gap-3 mt-1.5 text-xs opacity-75">
+                      <span>{obj.category}</span>
+                      <span>{(obj.confidence * 100).toFixed(0)}%</span>
                     </div>
                   </div>
                   <button
                     onClick={() => saveScan(obj)}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shrink-0 transition-colors"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 shrink-0 transition-colors"
                   >
-                    <MapPin className="w-4 h-4" />
+                    <MapPin className="w-3 h-3" />
                     Save
                   </button>
                 </div>
               </div>
             ))}
+            {detectedObjects.length > 3 && (
+              <div className="text-center text-xs text-muted-foreground bg-card/80 backdrop-blur-md rounded-lg p-2">
+                +{detectedObjects.length - 3} more objects detected
+              </div>
+            )}
           </div>
 
           {/* Scan Button */}

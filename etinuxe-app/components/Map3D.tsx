@@ -70,7 +70,7 @@ function Buildings() {
           castShadow
         >
           <boxGeometry args={[building.width, 4, building.depth]} />
-          <meshStandardMaterial color="#3b0764" roughness={0.6} metalness={0.2} />
+          <meshStandardMaterial color="#4a1d6d" roughness={0.8} metalness={0.1} emissive="#3d1759" emissiveIntensity={0.05} opacity={0.4} transparent />
         </mesh>
       ))}
     </>
