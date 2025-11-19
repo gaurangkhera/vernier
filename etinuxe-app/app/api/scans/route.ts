@@ -1,37 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const SCANS_FILE = path.join(DATA_DIR, 'scans.json');
-
-// Ensure data directory and file exist
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-if (!fs.existsSync(SCANS_FILE)) {
-  fs.writeFileSync(SCANS_FILE, JSON.stringify([]));
-}
-
-function readScans() {
-  try {
-    const data = fs.readFileSync(SCANS_FILE, 'utf-8');
-    return JSON.parse(data);
-  } catch {
-    return [];
-  }
-}
-
-function writeScans(scans: any[]) {
-  fs.writeFileSync(SCANS_FILE, JSON.stringify(scans, null, 2));
-}
+// In-memory storage (resets on deployment/restart)
+// For production, use a database like Vercel Postgres, Supabase, or MongoDB
+let scansStore: any[] = [];
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const bounds = searchParams.get('bounds');
 
-    let scans = readScans();
+    let scans = [...scansStore];
 
     if (bounds) {
       const [minLat, minLng, maxLat, maxLng] = bounds.split(',').map(Number);
@@ -73,7 +51,6 @@ export async function POST(req: NextRequest) {
       metadata,
     } = data;
 
-    const scans = readScans();
     const newScan = {
       id: Date.now(),
       user_id: 'guest',
@@ -88,8 +65,7 @@ export async function POST(req: NextRequest) {
       created_at: new Date().toISOString(),
     };
 
-    scans.push(newScan);
-    writeScans(scans);
+    scansStore.push(newScan);
 
     return NextResponse.json({
       success: true,

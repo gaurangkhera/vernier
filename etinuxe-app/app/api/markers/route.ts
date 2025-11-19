@@ -1,37 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const MARKERS_FILE = path.join(DATA_DIR, 'markers.json');
-
-// Ensure data directory and file exist
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-if (!fs.existsSync(MARKERS_FILE)) {
-  fs.writeFileSync(MARKERS_FILE, JSON.stringify([]));
-}
-
-function readMarkers() {
-  try {
-    const data = fs.readFileSync(MARKERS_FILE, 'utf-8');
-    return JSON.parse(data);
-  } catch {
-    return [];
-  }
-}
-
-function writeMarkers(markers: any[]) {
-  fs.writeFileSync(MARKERS_FILE, JSON.stringify(markers, null, 2));
-}
+// In-memory storage (resets on deployment/restart)
+// For production, use a database like Vercel Postgres, Supabase, or MongoDB
+let markersStore: any[] = [];
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const bounds = searchParams.get('bounds');
 
-    let markers = readMarkers();
+    let markers = [...markersStore];
 
     if (bounds) {
       const [minLat, minLng, maxLat, maxLng] = bounds.split(',').map(Number);
@@ -73,7 +51,6 @@ export async function POST(req: NextRequest) {
       color = '#3b82f6',
     } = data;
 
-    const markers = readMarkers();
     const newMarker = {
       id: Date.now(),
       scan_id: scanId || null,
@@ -88,8 +65,7 @@ export async function POST(req: NextRequest) {
       created_at: new Date().toISOString(),
     };
 
-    markers.push(newMarker);
-    writeMarkers(markers);
+    markersStore.push(newMarker);
 
     return NextResponse.json({
       success: true,
