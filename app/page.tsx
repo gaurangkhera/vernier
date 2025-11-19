@@ -12,12 +12,6 @@ export default function Home() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'map' | 'scan'>('map');
 
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/signin');
-    }
-  }, [status, router]);
-
   if (status === 'loading') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">

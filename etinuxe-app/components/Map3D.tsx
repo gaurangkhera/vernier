@@ -234,23 +234,45 @@ export default function Map3D() {
   const isNavigating = !!store.navigationPath && !isNavigationReady;
 
   useEffect(() => {
+    let watchId: number | null = null;
+    
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
+      // Watch position continuously to update map as user moves
+      watchId = navigator.geolocation.watchPosition(
         (pos) => {
           const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude, alt: pos.coords.altitude || 0 };
           store.setUserLocation(loc);
-          store.setImportantLocations(getDefaultLocations(loc));
+          // Only set locations on first position update
+          if (!store.importantLocations.length) {
+            store.setImportantLocations(getDefaultLocations(loc));
+          }
         },
-        () => {
-          const loc = { lat: 0, lng: 0, alt: 0 };
-          store.setUserLocation(loc);
-          store.setImportantLocations(getDefaultLocations(loc));
+        (error) => {
+          console.warn('Geolocation error:', error);
+          // Fallback to default location
+          if (!store.userLocation) {
+            const loc = { lat: 0, lng: 0, alt: 0 };
+            store.setUserLocation(loc);
+            store.setImportantLocations(getDefaultLocations(loc));
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 5000
         }
       );
     }
+    
     fetchData();
     const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
+    
+    return () => {
+      clearInterval(interval);
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
   }, []);
 
   const fetchData = async () => {
