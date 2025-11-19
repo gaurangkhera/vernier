@@ -300,7 +300,7 @@ Respond with ONLY a JSON array:
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
             <div className="bg-primary/20 backdrop-blur-md rounded-full px-6 py-2 border border-primary flex items-center gap-2">
               <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-              <span className="text-primary-foreground text-sm font-medium">AI Scanner Active</span>
+              <span className="text-primary-foreground text-sm font-medium">Scanning</span>
             </div>
           </div>
         </>

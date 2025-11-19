@@ -53,13 +53,8 @@ function MapBackground() {
   );
 }
 
-// 3D buildings - only show if camera has been used
+// 3D buildings
 function Buildings() {
-  const { scans } = useAppStore();
-  const hasCamera = scans.length > 0;
-  
-  if (!hasCamera) return null;
-  
   return (
     <>
       {BUILDINGS.map((building, i) => (
@@ -296,11 +291,10 @@ export default function Map3D() {
         z: -(location.latitude - store.userLocation!.lat) * 100000 
       };
       
-      // Only use obstacles if camera is present/active (scans exist)
-      const hasCamera = store.scans.length > 0;
-      const obstacles = hasCamera ? BUILDINGS : [];
+      // Always use obstacles for pathfinding
+      const obstacles = BUILDINGS;
       
-      console.log('Pathfinding:', { start, end, obstacleCount: obstacles.length, hasCamera });
+      console.log('Pathfinding:', { start, end, obstacleCount: obstacles.length });
       const path = findOptimalPath(start, end, obstacles, 1);
       console.log('Path found:', path.length, 'points');
       
