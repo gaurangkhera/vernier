@@ -1,0 +1,360 @@
+'use client';
+
+import { useRef, useEffect, useState } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls, PerspectiveCamera, Text, Html } from '@react-three/drei';
+import * as THREE from 'three';
+import { useAppStore, Scan, Marker } from '@/lib/store';
+import { AlertTriangle, Package, MapPin, Navigation } from 'lucide-react';
+
+interface Marker3DProps {
+  marker: Marker;
+  userLocation: { lat: number; lng: number; alt: number } | null;
+  onClick: () => void;
+}
+
+function Marker3D({ marker, userLocation, onClick }: Marker3DProps) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const [hovered, setHovered] = useState(false);
+
+  useFrame((state) => {
+    if (meshRef.current) {
+      meshRef.current.rotation.y = state.clock.getElapsedTime();
+    }
+  });
+
+  // Convert lat/lng to relative 3D position (simplified)
+  const position: [number, number, number] = [
+    (marker.longitude - (userLocation?.lng || 0)) * 100000,
+    marker.altitude || 0.5,
+    -(marker.latitude - (userLocation?.lat || 0)) * 100000,
+  ];
+
+  const color = marker.color || '#3b82f6';
+
+  return (
+    <group position={position}>
+      <mesh
+        ref={meshRef}
+        onClick={onClick}
+        onPointerOver={() => setHovered(true)}
+        onPointerOut={() => setHovered(false)}
+        scale={hovered ? 1.2 : 1}
+      >
+        <cylinderGeometry args={[0, 0.3, 1, 8]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.5} />
+      </mesh>
+      <mesh position={[0, 1, 0]}>
+        <sphereGeometry args={[0.2, 16, 16]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.8} />
+      </mesh>
+      {hovered && (
+        <Html distanceFactor={10}>
+          <div className="bg-black/90 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-sm whitespace-nowrap border border-cyan-500/50 shadow-lg">
+            <div className="font-semibold">{marker.title}</div>
+            <div className="text-xs text-gray-300">{marker.markerType}</div>
+          </div>
+        </Html>
+      )}
+    </group>
+  );
+}
+
+interface Scan3DProps {
+  scan: Scan;
+  userLocation: { lat: number; lng: number; alt: number } | null;
+  onClick: () => void;
+}
+
+function Scan3D({ scan, userLocation, onClick }: Scan3DProps) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const [hovered, setHovered] = useState(false);
+
+  useFrame((state) => {
+    if (meshRef.current) {
+      meshRef.current.position.y = Math.sin(state.clock.getElapsedTime() * 2) * 0.3 + 2;
+    }
+  });
+
+  const position: [number, number, number] = [
+    (scan.longitude - (userLocation?.lng || 0)) * 100000,
+    2,
+    -(scan.latitude - (userLocation?.lat || 0)) * 100000,
+  ];
+
+  const getThreatColor = () => {
+    switch (scan.threatLevel) {
+      case 'high':
+        return '#ef4444';
+      case 'medium':
+        return '#f59e0b';
+      case 'low':
+        return '#3b82f6';
+      default:
+        return '#10b981';
+    }
+  };
+
+  const color = getThreatColor();
+
+  return (
+    <group position={position}>
+      <mesh
+        ref={meshRef}
+        onClick={onClick}
+        onPointerOver={() => setHovered(true)}
+        onPointerOut={() => setHovered(false)}
+        scale={hovered ? 1.5 : 1.2}
+      >
+        <octahedronGeometry args={[1, 0]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={1}
+          transparent={false}
+        />
+      </mesh>
+      <pointLight color={color} intensity={3} distance={10} />
+      {hovered && (
+        <Html distanceFactor={10}>
+          <div className="bg-black/90 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-sm whitespace-nowrap border border-cyan-500/50 shadow-lg">
+            <div className="font-semibold">{scan.objectName || scan.type}</div>
+            <div className="text-xs text-gray-300">
+              Threat: {scan.threatLevel || 'none'}
+            </div>
+          </div>
+        </Html>
+      )}
+    </group>
+  );
+}
+
+function UserMarker({ position }: { position: [number, number, number] }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  useFrame((state) => {
+    if (meshRef.current) {
+      meshRef.current.rotation.y = state.clock.getElapsedTime() * 2;
+    }
+  });
+
+  return (
+    <group position={position}>
+      <mesh ref={meshRef}>
+        <coneGeometry args={[0.3, 0.8, 4]} />
+        <meshStandardMaterial color="#06b6d4" emissive="#06b6d4" emissiveIntensity={1} />
+      </mesh>
+      <pointLight color="#06b6d4" intensity={2} distance={5} />
+    </group>
+  );
+}
+
+function Terrain() {
+  return (
+    <>
+      {/* Ground plane */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+        <planeGeometry args={[100, 100, 20, 20]} />
+        <meshStandardMaterial
+          color="#1a1a2e"
+          wireframe={false}
+          transparent
+          opacity={0.3}
+        />
+      </mesh>
+
+      {/* Grid */}
+      <gridHelper args={[100, 50, '#06b6d4', '#334155']} position={[0, 0.01, 0]} />
+
+      {/* Ambient obstacles (simulated terrain features) */}
+      {Array.from({ length: 20 }).map((_, i) => (
+        <mesh
+          key={i}
+          position={[
+            (Math.random() - 0.5) * 80,
+            Math.random() * 2,
+            (Math.random() - 0.5) * 80,
+          ]}
+          castShadow
+        >
+          <boxGeometry args={[Math.random() * 3 + 1, Math.random() * 5 + 2, Math.random() * 3 + 1]} />
+          <meshStandardMaterial color="#374151" transparent opacity={0.4} />
+        </mesh>
+      ))}
+    </>
+  );
+}
+
+function Scene() {
+  const { scans, markers, userLocation, setSelectedScan, setSelectedMarker } = useAppStore();
+
+  const userPos: [number, number, number] = [0, 0.5, 0];
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Scene rendering - Scans:', scans.length, scans);
+    console.log('Scene rendering - Markers:', markers.length, markers);
+  }, [scans, markers]);
+
+  return (
+    <>
+      <PerspectiveCamera makeDefault position={[10, 15, 10]} />
+      <OrbitControls
+        enableDamping
+        dampingFactor={0.05}
+        minDistance={5}
+        maxDistance={50}
+        maxPolarAngle={Math.PI / 2}
+      />
+
+      <ambientLight intensity={0.5} />
+      <directionalLight position={[10, 10, 5]} intensity={1} castShadow />
+      <pointLight position={[0, 10, 0]} intensity={1} color="#06b6d4" />
+
+      <Terrain />
+
+      <UserMarker position={userPos} />
+
+      {scans.map((scan) => (
+        <Scan3D
+          key={scan.id}
+          scan={scan}
+          userLocation={userLocation}
+          onClick={() => setSelectedScan(scan)}
+        />
+      ))}
+
+      {markers.map((marker) => (
+        <Marker3D
+          key={marker.id}
+          marker={marker}
+          userLocation={userLocation}
+          onClick={() => setSelectedMarker(marker)}
+        />
+      ))}
+    </>
+  );
+}
+
+export default function Map3D() {
+  const { userLocation, setUserLocation, scans, markers, setScans, setMarkers } = useAppStore();
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Get user location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            alt: position.coords.altitude || 0,
+          });
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          // Set default location
+          setUserLocation({ lat: 0, lng: 0, alt: 0 });
+        }
+      );
+    }
+
+    // Fetch scans and markers initially
+    fetchData();
+
+    // Set up polling to refresh data every 5 seconds
+    const interval = setInterval(fetchData, 5000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const [scansRes, markersRes] = await Promise.all([
+        fetch('/api/scans'),
+        fetch('/api/markers'),
+      ]);
+
+      const scansData = await scansRes.json();
+      const markersData = await markersRes.json();
+
+      console.log('Fetched scans:', scansData.scans);
+      console.log('Fetched markers:', markersData.markers);
+
+      setScans(scansData.scans || []);
+      setMarkers(markersData.markers || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const recenterCamera = () => {
+    // This would reset camera position - implementation depends on Three.js controls
+    fetchData();
+  };
+
+  if (isLoading) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-900">
+        <div className="text-cyan-500">Loading map...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full h-full bg-gray-900">
+      <Canvas shadows>
+        <Scene />
+      </Canvas>
+
+      {/* Map Controls */}
+      <div className="absolute top-4 left-4 space-y-2">
+        <div className="bg-black/80 backdrop-blur-md rounded-lg p-3 border border-cyan-500/50">
+          <div className="text-cyan-500 font-semibold text-sm mb-2">Map Stats</div>
+          <div className="text-xs text-white space-y-1">
+            <div className="font-bold text-cyan-400">Scans: {scans.length}</div>
+            <div>Markers: {markers.length}</div>
+            {userLocation && (
+              <div className="text-gray-400">
+                Lat: {userLocation.lat.toFixed(4)}, Lng: {userLocation.lng.toFixed(4)}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <button
+          onClick={recenterCamera}
+          className="w-full bg-cyan-500 hover:bg-cyan-600 text-white px-4 py-2 rounded-lg text-sm flex items-center justify-center gap-2"
+        >
+          <Navigation className="w-4 h-4" />
+          Recenter
+        </button>
+      </div>
+
+      {/* Legend */}
+      <div className="absolute bottom-4 left-4 bg-black/80 backdrop-blur-md rounded-lg p-3 border border-cyan-500/50">
+        <div className="text-cyan-500 font-semibold text-sm mb-2">Legend</div>
+        <div className="space-y-2 text-xs">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-cyan-500 rounded-full"></div>
+            <span className="text-white">Your Location</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+            <span className="text-white">High Threat</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+            <span className="text-white">Medium Threat</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+            <span className="text-white">Marker/Object</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
