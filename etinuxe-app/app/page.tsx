@@ -1,35 +1,12 @@
 'use client';
 
-import { useSession, signOut } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Map, Scan, LogOut, User } from 'lucide-react';
 import ARScanner from '@/components/ARScanner';
 import Map3D from '@/components/Map3D';
 
 export default function Home() {
-  // const { data: session, status } = useSession();
-  // const router = useRouter();
   const [activeTab, setActiveTab] = useState<'map' | 'scan'>('map');
-
-  // useEffect(() => {
-  //   if (status === 'unauthenticated') {
-  //     router.push('/auth/signin');
-  //   }
-  // }, [status, router]);
-
-  // if (status === 'loading') {
-  //   return (
-  //     <div className="min-h-screen bg-background flex items-center justify-center">
-  //       <div className="text-primary text-lg">Loading...</div>
-  //     </div>
-  //   );
-  // }
-
-  // if (!session) {
-  //   return null;
-  // }
-
   const session = { user: { name: 'Guest User', email: 'guest@etinuxe.local' } };
 
   return (
