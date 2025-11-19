@@ -44,3 +44,7 @@ next-env.d.ts
 etinuxe.db
 etinuxe.db-shm
 etinuxe.db-wal
+
+# data files
+/data/*.json
+!/data/.gitkeep
