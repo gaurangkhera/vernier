@@ -1,13 +1,34 @@
 'use client';
 
-import { useState } from 'react';
+import { useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { Map, Scan, LogOut, User } from 'lucide-react';
 import ARScanner from '@/components/ARScanner';
 import Map3D from '@/components/Map3D';
 
 export default function Home() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'map' | 'scan'>('map');
-  const session = { user: { name: 'Guest User', email: 'guest@etinuxe.local' } };
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin');
+    }
+  }, [status, router]);
+
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-primary text-lg">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return null;
+  }
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -41,9 +62,9 @@ export default function Home() {
               <span className="text-sm text-foreground">{session.user?.name}</span>
             </div>
             <button
-              onClick={() => {/* signOut({ callbackUrl: '/auth/signin' }) */}}
+              onClick={() => signOut({ callbackUrl: '/auth/signin' })}
               className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors"
-              title="Sign Out (disabled)"
+              title="Sign Out"
             >
               <LogOut className="w-5 h-5" />
             </button>

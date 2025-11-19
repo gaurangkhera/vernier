@@ -1,31 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// In-memory storage (resets on deployment/restart)
-// For production, use a database like Vercel Postgres, Supabase, or MongoDB
-let markersStore: any[] = [];
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import db from '@/lib/db';
 
 export async function GET(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const bounds = searchParams.get('bounds');
 
-    let markers = [...markersStore];
-
+    let markers;
     if (bounds) {
       const [minLat, minLng, maxLat, maxLng] = bounds.split(',').map(Number);
-      markers = markers.filter(
-        (marker: any) =>
-          marker.latitude >= minLat &&
-          marker.latitude <= maxLat &&
-          marker.longitude >= minLng &&
-          marker.longitude <= maxLng
-      );
+      markers = db
+        .prepare(
+          `SELECT * FROM markers 
+           WHERE latitude BETWEEN ? AND ? 
+           AND longitude BETWEEN ? AND ?
+           ORDER BY created_at DESC`
+        )
+        .all(minLat, maxLat, minLng, maxLng);
+    } else {
+      markers = db
+        .prepare('SELECT * FROM markers ORDER BY created_at DESC LIMIT 100')
+        .all();
     }
-
-    // Sort by created_at desc and limit to 100
-    markers = markers
-      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 100);
 
     return NextResponse.json({ markers });
   } catch (error) {
@@ -39,6 +42,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const data = await req.json();
     const {
       scanId,
@@ -51,25 +59,29 @@ export async function POST(req: NextRequest) {
       color = '#3b82f6',
     } = data;
 
-    const newMarker = {
-      id: Date.now(),
-      scan_id: scanId || null,
-      user_id: 'guest',
-      marker_type: markerType,
-      latitude,
-      longitude,
-      altitude,
-      title,
-      description,
-      color,
-      created_at: new Date().toISOString(),
-    };
+    const userId = (session.user as any).id;
 
-    markersStore.push(newMarker);
+    const result = db
+      .prepare(
+        `INSERT INTO markers 
+         (scan_id, user_id, marker_type, latitude, longitude, altitude, title, description, color)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        scanId || null,
+        userId,
+        markerType,
+        latitude,
+        longitude,
+        altitude,
+        title,
+        description,
+        color
+      );
 
     return NextResponse.json({
       success: true,
-      markerId: newMarker.id,
+      markerId: result.lastInsertRowid,
     });
   } catch (error) {
     console.error('Create marker error:', error);

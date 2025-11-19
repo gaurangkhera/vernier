@@ -1,31 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// In-memory storage (resets on deployment/restart)
-// For production, use a database like Vercel Postgres, Supabase, or MongoDB
-let scansStore: any[] = [];
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import db from '@/lib/db';
 
 export async function GET(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const bounds = searchParams.get('bounds');
 
-    let scans = [...scansStore];
-
+    let scans;
     if (bounds) {
       const [minLat, minLng, maxLat, maxLng] = bounds.split(',').map(Number);
-      scans = scans.filter(
-        (scan: any) =>
-          scan.latitude >= minLat &&
-          scan.latitude <= maxLat &&
-          scan.longitude >= minLng &&
-          scan.longitude <= maxLng
-      );
+      scans = db
+        .prepare(
+          `SELECT * FROM scans 
+           WHERE latitude BETWEEN ? AND ? 
+           AND longitude BETWEEN ? AND ?
+           ORDER BY created_at DESC`
+        )
+        .all(minLat, maxLat, minLng, maxLng);
+    } else {
+      scans = db
+        .prepare('SELECT * FROM scans ORDER BY created_at DESC LIMIT 100')
+        .all();
     }
-
-    // Sort by created_at desc and limit to 100
-    scans = scans
-      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 100);
 
     return NextResponse.json({ scans });
   } catch (error) {
@@ -39,6 +42,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const data = await req.json();
     const {
       type,
@@ -51,25 +59,29 @@ export async function POST(req: NextRequest) {
       metadata,
     } = data;
 
-    const newScan = {
-      id: Date.now(),
-      user_id: 'guest',
-      type,
-      threat_level: threatLevel,
-      object_name: objectName,
-      latitude,
-      longitude,
-      altitude,
-      description,
-      metadata,
-      created_at: new Date().toISOString(),
-    };
+    const userId = (session.user as any).id;
 
-    scansStore.push(newScan);
+    const result = db
+      .prepare(
+        `INSERT INTO scans 
+         (user_id, type, threat_level, object_name, latitude, longitude, altitude, description, metadata)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        userId,
+        type,
+        threatLevel,
+        objectName,
+        latitude,
+        longitude,
+        altitude,
+        description,
+        JSON.stringify(metadata)
+      );
 
     return NextResponse.json({
       success: true,
-      scanId: newScan.id,
+      scanId: result.lastInsertRowid,
     });
   } catch (error) {
     console.error('Create scan error:', error);
